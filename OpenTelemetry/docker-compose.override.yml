@@ -1,0 +1,24 @@
+services:
+  mywebapi:
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # - ASPNETCORE_HTTP_PORTS=8080
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+    ports:
+      - "18080:8080"
+  otel-collector:
+    ports:
+      - "14317:4317"
+      - "14318:4318"
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml
+      # - /:/hostfs:ro 
+    extra_hosts:
+      - "host.docker.internal=host-gateway"
+    command: ["--config", "/etc/otel-collector-config.yaml"]
+  aspire-dashboard:
+    environment:
+      - DOTNET_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS="true"
+    ports:
+      - "18888:18888"
+        # - "4317:18889"

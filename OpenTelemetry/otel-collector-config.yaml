@@ -1,0 +1,83 @@
+extensions:
+  # basicauth/grafana_cloud:
+  #   # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
+  #   client_auth:
+  #     username: "*"
+  #     password: "*"
+
+receivers:
+  otlp: # the OTLP receiver the app is sending traces to
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+  # hostmetrics:
+  #   # Optional. Host Metrics Receiver added as an example of Infra Monitoring capabilities of the OpenTelemetry Collector
+  #   # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/hostmetricsreceiver
+  #   collection_interval: 15s
+  #   root_path: /hostfs
+  #   scrapers:
+  #     load:
+  #     memory:
+  #     cpu:
+  #     disk:
+
+  # docker_stats:
+  #   endpoint: tcp://host.docker.internal:2375
+  #   api_version: "1.51"
+  #   collection_interval: 15s
+  # #   container_labels_to_metric_labels:
+  # #     my.container.label: my-metric-label
+  # #     my.other.container.label: my-other-metric-label
+  # #   env_vars_to_metric_labels:
+  # #     MY_ENVIRONMENT_VARIABLE: my-metric-label
+  # #     MY_OTHER_ENVIRONMENT_VARIABLE: my-other-metric-label
+  # #   excluded_images:
+  # #     - undesired-container
+  # #     - /.*undesired.*/
+  # #     - another-*-container
+  #   metrics:
+  #     container.cpu.usage.percpu:
+  #       enabled: true
+  #     container.network.io.usage.tx_dropped:
+  #       enabled: false
+
+  httpcheck:
+    collection_interval: 60s
+    # Enable TLS certificate monitoring (disabled by default)
+    targets:
+      - method: "GET"
+        endpoints:
+          - "http://mywebapi:8080/healthz"
+
+processors:
+  batch:
+
+exporters:
+  otlp:
+    endpoint: aspire-dashboard:18889
+    tls:
+      insecure: true
+  debug:
+    verbosity: detailed
+  # otlphttp/grafana_cloud:
+  #   endpoint: "https://otlp-gateway-prod-sa-east-1.grafana.net/otlp"
+  #   auth:
+  #     authenticator: basicauth/grafana_cloud
+
+service:
+  # extensions: [basicauth/grafana_cloud]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp]
+    metrics:
+      receivers: [otlp, httpcheck]
+      processors: []
+      exporters: [otlp]
+    logs:
+      receivers: [otlp]
+      processors: []
+      exporters: [otlp, debug]

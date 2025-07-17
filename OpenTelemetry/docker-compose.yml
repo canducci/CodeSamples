@@ -1,0 +1,10 @@
+services:
+  mywebapi:
+    image: ${DOCKER_REGISTRY-}mywebapi
+    build:
+      context: .
+      dockerfile: MyWebApi/Dockerfile
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.128.0
+  aspire-dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:9.3.0
