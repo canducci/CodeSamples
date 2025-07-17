@@ -44,7 +44,7 @@ receivers:
   #       enabled: false
 
   httpcheck:
-    collection_interval: 60s
+    collection_interval: 5m
     # Enable TLS certificate monitoring (disabled by default)
     targets:
       - method: "GET"

@@ -4,9 +4,12 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       # - ASPNETCORE_HTTP_PORTS=8080
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - Logging__LogLevel__WeatherForecastHandler=Debug
     ports:
       - "18080:8080"
   otel-collector:
+    environment:
+      - OTEL_SERVICE_NAME=otel-collector
     ports:
       - "14317:4317"
       - "14318:4318"
