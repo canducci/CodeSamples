@@ -98,7 +98,7 @@ app.MapHealthChecks("/healthz");
 
 var apiGroup = app.MapGroup("/weatherforecast");
 
-apiGroup.AddEndpointFilter<WeatherApiMetricsFilter>();
+//apiGroup.AddEndpointFilter<WeatherApiMetricsFilter>();
 
 apiGroup.MapGet("/", WeatherForecastHandler.GetForecasts);
 
