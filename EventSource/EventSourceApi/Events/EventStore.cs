@@ -2,9 +2,17 @@
 
 namespace EventSourceApi.Events;
 
-public class EventStore
+
+public interface IEventStore
 {
-    private List<Event> _events = new List<Event>();
+    void Append(Event @event);
+    SupplierAggregate? GetSupplierById(Guid id);
+    IEnumerable<SupplierAggregate> GetAllSuppliers();
+}
+
+public sealed class EventStore : IEventStore
+{
+    private static List<Event> _events = new List<Event>();
 
     public void Append(Event @event)
     {

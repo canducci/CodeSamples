@@ -1,4 +1,6 @@
-﻿using EventSourceApi.Events;
+﻿using EventSourceApi.Aggregates;
+using EventSourceApi.Events;
+using System.Net.NetworkInformation;
 
 namespace EventSourceApi.Endpoints;
 
@@ -8,36 +10,64 @@ public static class SupplierEndpoints
     {
         var appGroup = app.MapGroup("/suppliers");
 
-        appGroup.MapGet("/", (EventStore eventStore) =>
+        appGroup.MapGet("/", (IEventStore eventStore) =>
         {
-            var suppliers = eventStore.GetAllSuppliers();
+            var suppliers = eventStore.GetAllSuppliers()
+                .Select(x => new Supplier(x.Id, x.Name, x.ContactEmail, x.ContactPhone));
             return Results.Ok(suppliers);
-        });
+        })
+            .Produces<IEnumerable<Supplier>>(200);
 
-        appGroup.MapGet("/{id}", (EventStore eventStore, Guid id) =>
+        appGroup.MapGet("/{supplierId}", (IEventStore eventStore, Guid supplierId) =>
         {
-            var supplier = eventStore.GetSupplierById(id);
+            var supplier = eventStore.GetSupplierById(supplierId);
             if (supplier == null)
                 return Results.NotFound();
-            return Results.Ok(supplier);
-        });
+            return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone);
+        })
+            .Produces<Supplier>(200)
+            .Produces(404);
 
-        appGroup.MapPost("/", (EventStore eventStore, SupplierCreate create) =>
-        {   
-            eventStore.Append(create);
-            var supplier = eventStore.GetSupplierById(create.SupplierId);
-            return Results.Created($"/suppliers/{create.SupplierId}", supplier);
-        });
-
-        appGroup.MapPut("/{id}", async (EventStore eventStore, Guid id, SupplierUpdated updated) =>
+        appGroup.MapPost("/", (IEventStore eventStore, SupplierPostRequest create) =>
         {
-            updated.SupplierId = id;
+            var createRequestEvent = new SupplierCreate
+            {
+                SupplierId = Guid.NewGuid(),
+                Name = create.Name,
+                ContactEmail = create.ContactEmail,
+                ContactPhone = create.ContactPhone
+            };
 
-            var supplier = eventStore.GetSupplierById(id);
+            eventStore.Append(createRequestEvent);
+            var supplier = eventStore.GetSupplierById(createRequestEvent.SupplierId);
+
+            return Results.Created($"/suppliers/{createRequestEvent.SupplierId}", 
+                new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone));
+        })
+            .Produces<Supplier>(201);
+
+        appGroup.MapPut("/{supplierId}", (IEventStore eventStore, Guid supplierId, SupplierPutRequest update) =>
+        {
+            var supplier = eventStore.GetSupplierById(supplierId);
             if (supplier == null)
                 return Results.BadRequest();
-            eventStore.Append(updated);
-            return Results.Accepted();
-        });
+
+            var @event = new SupplierUpdate
+            {
+                SupplierId = supplierId,
+                ContactEmail = update.ContactEmail,
+                ContactPhone = update.ContactPhone
+            };
+
+            eventStore.Append(@event);
+            supplier.Apply(@event);
+            return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone));
+        })
+            .Produces<Supplier>(200)
+            .Produces(400);
     }
+    public record struct SupplierPostRequest(string Name, string ContactEmail, string ContactPhone);
+    public record struct SupplierPutRequest(string? ContactEmail, string? ContactPhone);
+    public record struct Supplier(Guid Id, string Name, string ContactEmail, string ContactPhone);
+
 }

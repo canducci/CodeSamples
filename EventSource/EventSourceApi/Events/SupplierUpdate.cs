@@ -2,7 +2,7 @@
 
 namespace EventSourceApi.Events;
 
-public record SupplierUpdated : Event
+public record SupplierUpdate : Event
 {
     public Guid SupplierId { get; set; }
     public string? Name { get; set; }

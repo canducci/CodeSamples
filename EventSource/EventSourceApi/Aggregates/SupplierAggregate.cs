@@ -34,7 +34,7 @@ public class SupplierAggregate
         this.ContactPhone = create.ContactPhone;
     }
 
-    private void Apply(SupplierUpdated updated)
+    private void Apply(SupplierUpdate updated)
     {
         if(updated.Name != null)
             this.Name = updated.Name;
