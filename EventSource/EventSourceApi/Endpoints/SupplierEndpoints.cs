@@ -13,26 +13,26 @@ public static class SupplierEndpoints
         appGroup.MapGet("/", (IEventStore eventStore) =>
         {
             var suppliers = eventStore.GetAllSuppliers()
-                .Select(x => new Supplier(x.Id, x.Name, x.ContactEmail, x.ContactPhone));
+                .Select(x => new Supplier(x.Id, x.Name, x.ContactEmail, x.ContactPhone, x.DeletedAt.HasValue));
             return Results.Ok(suppliers);
         })
             .Produces<IEnumerable<Supplier>>(200);
 
-        appGroup.MapGet("/{supplierId}", (IEventStore eventStore, Guid supplierId) =>
+        appGroup.MapGet("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId) =>
         {
             var supplier = eventStore.GetSupplierById(supplierId);
             if (supplier == null)
                 return Results.NotFound();
-            return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone);
+            return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue)); // changed x to supplier
         })
             .Produces<Supplier>(200)
+            .Produces(400)
             .Produces(404);
 
         appGroup.MapPost("/", (IEventStore eventStore, SupplierPostRequest create) =>
         {
-            var createRequestEvent = new SupplierCreate
+            var createRequestEvent = new SupplierCreate(Guid.NewGuid())
             {
-                SupplierId = Guid.NewGuid(),
                 Name = create.Name,
                 ContactEmail = create.ContactEmail,
                 ContactPhone = create.ContactPhone
@@ -42,32 +42,42 @@ public static class SupplierEndpoints
             var supplier = eventStore.GetSupplierById(createRequestEvent.SupplierId);
 
             return Results.Created($"/suppliers/{createRequestEvent.SupplierId}", 
-                new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone));
+                new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue));
         })
             .Produces<Supplier>(201);
 
-        appGroup.MapPut("/{supplierId}", (IEventStore eventStore, Guid supplierId, SupplierPutRequest update) =>
+        appGroup.MapPut("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId, SupplierPutRequest update) =>
         {
             var supplier = eventStore.GetSupplierById(supplierId);
             if (supplier == null)
                 return Results.BadRequest();
 
-            var @event = new SupplierUpdate
+            var @event = new SupplierUpdate(supplierId)
             {
-                SupplierId = supplierId,
                 ContactEmail = update.ContactEmail,
                 ContactPhone = update.ContactPhone
             };
 
             eventStore.Append(@event);
             supplier.Apply(@event);
-            return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone));
+            return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue)); // updated to include IsDeleted
         })
             .Produces<Supplier>(200)
             .Produces(400);
+
+        appGroup.MapDelete("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId) => { 
+            var supplier = eventStore.GetSupplierById(supplierId);
+            if (supplier == null)
+                return Results.NotFound();
+            var deleteEvent = new SupplierDelete(supplierId);
+            eventStore.Append(deleteEvent);
+            return Results.NoContent();
+        })
+            .Produces(204)
+            .Produces(404);
     }
     public record struct SupplierPostRequest(string Name, string ContactEmail, string ContactPhone);
     public record struct SupplierPutRequest(string? ContactEmail, string? ContactPhone);
-    public record struct Supplier(Guid Id, string Name, string ContactEmail, string ContactPhone);
+    public record struct Supplier(Guid Id, string Name, string ContactEmail, string ContactPhone, bool IsDeleted = false);
 
 }

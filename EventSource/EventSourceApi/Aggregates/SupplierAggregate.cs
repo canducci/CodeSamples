@@ -10,6 +10,7 @@ public class SupplierAggregate
     public string Name { get; private set; }
     public string ContactEmail { get; private set; }
     public string ContactPhone { get; private set; }
+    public DateTime? DeletedAt { get; private set; }
 
 #pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     private SupplierAggregate()
@@ -42,6 +43,11 @@ public class SupplierAggregate
             this.ContactEmail = updated.ContactEmail;
         if(updated.ContactPhone != null)
             this.ContactPhone = updated.ContactPhone;
+    }
+
+    private void Apply(SupplierDelete deleted)
+    {
+        DeletedAt = deleted.Timestamp;
     }
 
     private void Apply(object unknouEvent)

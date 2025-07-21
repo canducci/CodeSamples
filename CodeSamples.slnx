@@ -3,6 +3,9 @@
     <Project Path="EntraIdAuth/BlazorServerEntraId/BlazorServerEntraId.csproj" />
   </Folder>
   <Folder Name="/EventSource/">
+    <Project Path="EventSource/DockerCompose/docker-compose.dcproj">
+      <Build />
+    </Project>
     <Project Path="EventSource/EventSourceApi/EventSourceApi.csproj" Id="fb0d81c8-54cb-458c-990a-7dc60e0557c6" />
   </Folder>
   <Folder Name="/OpenTelemetry/">

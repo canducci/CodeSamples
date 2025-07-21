@@ -1,0 +1,11 @@
+services:
+  eventsourceapi:
+    image: ${DOCKER_REGISTRY-}eventsourceapi
+    build:
+      context: .
+      dockerfile: ../EventSourceApi/Dockerfile
+  mongodb:
+    image: mongodb/mongodb-community-server:latest
+    ports:
+      - "27017:27017"
+

@@ -22,7 +22,7 @@ public sealed class EventStore : IEventStore
     public SupplierAggregate? GetSupplierById(Guid id)
     {
         var supplierEvents = _events
-            .Where(e => e.AggregateType == SupplierAggregate.AggregateType && e.AggregateId == id)
+            .Where(e => e is SupplierEvent && e.AggregateId == id)
             .OrderBy(e => e.Timestamp)
             .ToList();
 
@@ -35,7 +35,7 @@ public sealed class EventStore : IEventStore
     public IEnumerable<SupplierAggregate> GetAllSuppliers()
     {
         var suppliersEvents = _events
-            .Where(e => e.AggregateType == SupplierAggregate.AggregateType)
+            .Where(e => e is SupplierEvent)
             .OrderBy(e => e.Timestamp)
             .GroupBy(e => e.AggregateId)
             .Take(10)

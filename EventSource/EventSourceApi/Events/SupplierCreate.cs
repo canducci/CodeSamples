@@ -1,13 +1,11 @@
 ﻿using EventSourceApi.Aggregates;
+using static EventSourceApi.Endpoints.SupplierEndpoints;
 
 namespace EventSourceApi.Events;
 
-public record SupplierCreate : Event
+public record SupplierCreate(Guid SupplierId) : SupplierEvent(SupplierId)
 {
-    public Guid SupplierId { get;  set; }
     public string Name { get;  set; }
     public string ContactEmail { get;  set; }
     public string ContactPhone { get;  set; }
-    public override Guid AggregateId => SupplierId;
-    public override string AggregateType => SupplierAggregate.AggregateType;
 }
