@@ -8,7 +8,8 @@ public static class SupplierEndpoints
 {
     public static void MapSupplierEndpoints(this IEndpointRouteBuilder app)
     {
-        var appGroup = app.MapGroup("/suppliers");
+        var appGroup = app.MapGroup("/suppliers")
+            .RequireAuthorization();
 
         appGroup.MapGet("/", (IEventStore eventStore) =>
         {
@@ -34,6 +35,7 @@ public static class SupplierEndpoints
             var createRequestEvent = new SupplierCreate(Guid.NewGuid(), create.Name, create.ContactEmail, create.ContactPhone);
 
             eventStore.Append(createRequestEvent);
+
             var supplier = eventStore.GetSupplierById(createRequestEvent.SupplierId);
 
             if (supplier == null)
@@ -43,7 +45,7 @@ public static class SupplierEndpoints
                 new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue));
         })
             .Produces<Supplier>(201)
-            .Produces(400);
+            .Produces(400); 
 
         appGroup.MapPut("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId, SupplierPutRequest update) =>
         {
@@ -55,7 +57,6 @@ public static class SupplierEndpoints
 
             eventStore.Append(@event);
             supplier.Apply(@event);
-            supplier = eventStore.GetSupplierById(supplierId);
 
             return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue)); // updated to include IsDeleted
         })
@@ -67,8 +68,10 @@ public static class SupplierEndpoints
             var supplier = eventStore.GetSupplierById(supplierId);
             if (supplier == null)
                 return Results.NotFound();
+
             var deleteEvent = new SupplierDelete(supplierId);
             eventStore.Append(deleteEvent);
+
             return Results.NoContent();
         })
             .Produces(204)

@@ -1,25 +1,42 @@
 ﻿using EventSourceApi.Aggregates;
-using System.Numerics;
+using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
+using static EventSourceApi.Endpoints.SupplierEndpoints;
 
 namespace EventSourceApi.Events;
-
 
 public interface IEventStore
 {
     void Append(Event @event);
+
+    void UpdateView<TAggregate>(TAggregate aggregate) where TAggregate : AggregateBase;
+
     SupplierAggregate? GetSupplierById(Guid id);
     IEnumerable<SupplierAggregate> GetAllSuppliers();
     OrderAggregate? GetOrderById(Guid orderId);
     IEnumerable<OrderAggregate> GetAllOrders();
 }
 
-public sealed class EventStore : IEventStore
+public sealed class InMemoryEventStore : IEventStore
 {
-    private static readonly List<Event> _events = [];
+    private static readonly ConcurrentBag<Event> _events = [];
+    private static readonly ConcurrentDictionary<Guid, AggregateBase> _aggregateViews = new();
 
     public void Append(Event @event)
     {
         _events.Add(@event);
+
+        AggregateBase? agr = @event switch
+        {
+            SupplierEvent supplierEvent => GetSupplierById(supplierEvent.AggregateId),
+            OrderEvent orderEvent => GetOrderById(orderEvent.AggregateId),
+            _ => null
+        };
+
+        if (agr != null)
+        {
+            _aggregateViews.AddOrUpdate(agr.Id, agr, (_, _) => agr);
+        }
     }
 
     public SupplierAggregate? GetSupplierById(Guid supplierId)
@@ -36,10 +53,19 @@ public sealed class EventStore : IEventStore
     }
 
     public IEnumerable<SupplierAggregate> GetAllSuppliers()
-        => Replay<SupplierAggregate, SupplierEvent>();
+        => ListFromView<SupplierAggregate>();
 
     public IEnumerable<OrderAggregate> GetAllOrders()
-        => Replay<OrderAggregate, OrderEvent>();
+        => ListFromView<OrderAggregate>();
+
+    private static IEnumerable<TAggregate> ListFromView<TAggregate>()
+        where TAggregate : AggregateBase
+    {
+        return _aggregateViews.Values
+            .OfType<TAggregate>()
+            .OrderBy(a => a.Id)
+            .Take(10);
+    }
 
     private static IEnumerable<TAggregate> Replay<TAggregate, TEvent>()
         where TAggregate : AggregateBase<TAggregate>, new()
@@ -74,5 +100,10 @@ public sealed class EventStore : IEventStore
             return null;
 
         return OrderAggregate.Replay(supplierEvents);
+    }
+
+    public void UpdateView<TAggregate>(TAggregate aggregate) where TAggregate : AggregateBase
+    {
+
     }
 }

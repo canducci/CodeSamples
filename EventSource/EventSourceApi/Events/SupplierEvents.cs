@@ -1,4 +1,6 @@
-﻿namespace EventSourceApi.Events;
+﻿using EventSourceApi.Aggregates;
+
+namespace EventSourceApi.Events;
 
 public abstract record SupplierEvent : Event
 {

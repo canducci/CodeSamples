@@ -12,3 +12,7 @@ public abstract record OrderEvent : Event
 }
 
 public sealed record OrderCreate(Guid OrderId, string Responsible, string Description, List<OrderItem> Items) : OrderEvent(OrderId);
+
+public sealed record OrderUpdate(Guid OrderId, string? Responsible, string? Description, List<OrderItem>? ItemsToAdd, List<OrderItem>? ItemsToRemove) : OrderEvent(OrderId);
+
+public sealed record OrderDelete(Guid OrderId) : SupplierEvent(OrderId);

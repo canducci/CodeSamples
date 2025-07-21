@@ -16,17 +16,16 @@ public sealed class OrderAggregate : AggregateBase<OrderAggregate>
             case OrderCreate create:
                 Apply(create);
                 break;
-            //case SupplierUpdate update:
-            //    Apply(update);
-            //    break;
-            //case SupplierDelete delete:
-            //    Apply(delete);
-            //    break;
+            case OrderUpdate update:
+                Apply(update);
+                break;
+            case OrderDelete delete:
+                Apply(delete);
+                break;
             default:
                 break;
         }
     }
-
     private void Apply(OrderCreate create)
     {
         this.Id = create.OrderId;
@@ -35,6 +34,31 @@ public sealed class OrderAggregate : AggregateBase<OrderAggregate>
         this.Items = create.Items;
         this.Status = OrderStatus.Pending;
         this.CreatedAt = create.Timestamp;
+    }
+    private void Apply(OrderUpdate update)
+    {
+        if (update.Responsible != null)
+            this.Responsible = update.Responsible;
+        if (update.Description != null)
+            this.Description = update.Description;
+        if (update.ItemsToRemove != null && update.ItemsToRemove.Count != 0)
+        {
+            foreach (var item in update.ItemsToRemove)
+            {
+                Items.RemoveAll(i => i.Description == item.Description);
+            }
+        }
+        if (update.ItemsToAdd != null && update.ItemsToAdd.Count != 0)
+        {
+            foreach (var item in update.ItemsToAdd)
+            {
+                Items.Add(item);
+            }
+        }
+    }
+    private void Apply(OrderDelete delete)
+    {
+        DeletedAt = delete.Timestamp;
     }
 }
 
