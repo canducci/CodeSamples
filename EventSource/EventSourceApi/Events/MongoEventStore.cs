@@ -6,9 +6,8 @@ using MongoDB.Driver;
 
 namespace EventSourceApi.Events;
 
-public class MongoEventStore : IEventStore
-{
-    private readonly IMongoCollection<Event> mongoCollection;
+public class MongoEventStore(IMongoCollection<Event> mongoCollection) : IEventStore
+{    
     public static void Configure()
     {
         BsonClassMap.RegisterClassMap<Event>(e =>
@@ -23,19 +22,22 @@ public class MongoEventStore : IEventStore
 
         BsonClassMap.RegisterClassMap<SupplierEvent>(m =>
         {
-            m.MapProperty(m => m.SupplierId)
-                .SetSerializer(new GuidSerializer(GuidRepresentation.Standard));
+            m.SetIsRootClass(true);
+            m.UnmapProperty(e => e.SupplierId);
         });
+
         BsonClassMap.RegisterClassMap<SupplierCreate>();
         BsonClassMap.RegisterClassMap<SupplierUpdate>();
         BsonClassMap.RegisterClassMap<SupplierDelete>();
-    }
 
+        BsonClassMap.RegisterClassMap<OrderEvent>(m =>
+        {
+            m.SetIsRootClass(true);
+            m.UnmapProperty(e => e.OrderId);
+        });
+        BsonClassMap.RegisterClassMap<OrderCreate>();
 
-    public MongoEventStore(IMongoCollection<Event> mongoCollection)
-    {
-        this.mongoCollection = mongoCollection;
-    }
+    }    
 
     public void Append(Event @event)
     {
@@ -43,41 +45,51 @@ public class MongoEventStore : IEventStore
             .InsertOne(@event);
     }
 
-    public IEnumerable<SupplierAggregate> GetAllSuppliers()
+    private TAggregate? GetAggregateById<TAggregate, TEvent>(Guid id)
+        where TAggregate : AggregateBase<TAggregate>, new()
     {
-        var evs = mongoCollection.AsQueryable()
-            .Where(e => e is SupplierEvent)
-            .OrderBy(e => e.Timestamp)
+        var aggregateEvents = mongoCollection
+            .Find(e => e is TEvent && e.AggregateId == id)
+            .SortBy(e => e.Timestamp)
+            .ToList();
+
+        if (aggregateEvents.Count == 0)
+            return null;
+
+        return AggregateBase<TAggregate>.Replay(aggregateEvents);
+    }
+
+    private IEnumerable<TAggregate> Replay<TAggregate, TEvent>()
+        where TAggregate : AggregateBase<TAggregate>, new()
+        where TEvent : Event
+    {
+        var evs = mongoCollection
+            .Find(e => e is TEvent)
+            .SortBy(e => e.Timestamp)
+            .ToList()
             .GroupBy(e => e.AggregateId)
             .Take(10)
             .ToList();
 
-        var suppliers = evs.Select(SupplierAggregate.Materialize)
-            .ToList();
-
-        return suppliers;
+        foreach (var @event in evs)
+        {
+            var aggregate = AggregateBase<TAggregate>.Replay(@event);
+            if (aggregate == null)
+                continue;
+            yield return aggregate;
+        }
     }
+
+
+    public IEnumerable<SupplierAggregate> GetAllSuppliers()
+     => Replay<SupplierAggregate, SupplierEvent>();
 
     public SupplierAggregate? GetSupplierById(Guid id)
-    {
-        //var supplierEvents = mongoCollection.AsQueryable()
-        //    .Where(e=>e is SupplierEvent)
-        //    .OrderBy(e => e.Timestamp)
-        //    .Where(e => e.AggregateId == id)
-        //    .ToArray();
+        => GetAggregateById<SupplierAggregate, SupplierEvent>(id);
 
-        var supplierEvents = mongoCollection
-            .Find(e => e is SupplierEvent && e.AggregateId == id)
-            .SortBy(e => e.Timestamp)
-            .ToList();
+    public OrderAggregate? GetOrderById(Guid orderId)
+        => GetAggregateById<OrderAggregate, OrderEvent>(orderId);
 
-        if (!supplierEvents.Any())
-            return null;
-
-
-        var supplier = SupplierAggregate.Materialize(supplierEvents);
-
-        return supplier;
-
-    }
+    public IEnumerable<OrderAggregate> GetAllOrders()
+        => Replay<OrderAggregate, OrderEvent>();
 }

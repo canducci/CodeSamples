@@ -2,29 +2,29 @@
 
 namespace EventSourceApi.Aggregates;
 
-public class SupplierAggregate
+public sealed class SupplierAggregate : AggregateBase<SupplierAggregate>
 {
-    public const string AggregateType = "Supplier";
+    public string Name { get; private set; } = "";
+    public string ContactEmail { get; private set; } = "";
+    public string ContactPhone { get; private set; } = "";
+    
 
-    public Guid Id { get; private set; }
-    public string Name { get; private set; }
-    public string ContactEmail { get; private set; }
-    public string ContactPhone { get; private set; }
-    public DateTime? DeletedAt { get; private set; }
-
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
-    private SupplierAggregate()
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
+    public override void Apply(Event @event)
     {
-        // Required for deserialization
-    }
-
-    private SupplierAggregate(Guid id, string name, string contactEmail, string contactPhone)
-    {
-        Id = id;
-        Name = name;
-        ContactEmail = contactEmail;
-        ContactPhone = contactPhone;
+        switch (@event)
+        {
+            case SupplierCreate create:
+                Apply(create);
+                break;
+            case SupplierUpdate update:
+                Apply(update);
+                break;
+            case SupplierDelete delete:
+                Apply(delete);
+                break;
+            default:
+                break;
+        }
     }
 
     private void Apply(SupplierCreate create)
@@ -33,15 +33,16 @@ public class SupplierAggregate
         this.Name = create.Name;
         this.ContactEmail = create.ContactEmail;
         this.ContactPhone = create.ContactPhone;
+        this.CreatedAt = create.Timestamp;
     }
 
     private void Apply(SupplierUpdate updated)
     {
-        if(updated.Name != null)
+        if (updated.Name != null)
             this.Name = updated.Name;
-        if(updated.ContactEmail != null)
+        if (updated.ContactEmail != null)
             this.ContactEmail = updated.ContactEmail;
-        if(updated.ContactPhone != null)
+        if (updated.ContactPhone != null)
             this.ContactPhone = updated.ContactPhone;
     }
 
@@ -50,24 +51,5 @@ public class SupplierAggregate
         DeletedAt = deleted.Timestamp;
     }
 
-    private void Apply(object unknouEvent)
-    {
-        // Handle unknown events if necessary
-    }
-
-    public void Apply(Event @event)
-    {
-        Apply((dynamic)@event);
-    }
-
-    public static SupplierAggregate Materialize(IEnumerable<Event> events)
-    {
-        var supplier = new SupplierAggregate();
-        foreach (var @event in events)
-        {
-            supplier.Apply(@event);
-        }
-        return supplier;
-
-    }
+    
 }

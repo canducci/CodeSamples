@@ -11,16 +11,7 @@ public abstract record Event
     public string EventType => GetType().Name;
 }
 
-public abstract record SupplierEvent : Event
-{
-    public Guid SupplierId { get; set; }
-    //public override string AggregateType => SupplierAggregate.AggregateType;
 
-    public SupplierEvent(Guid supplierId)
-    {
-        // Required for deserialization
-        SupplierId = supplierId;
-        AggregateId = supplierId;
-    }
 
-}
+
+

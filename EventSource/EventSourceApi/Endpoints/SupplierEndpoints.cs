@@ -31,20 +31,19 @@ public static class SupplierEndpoints
 
         appGroup.MapPost("/", (IEventStore eventStore, SupplierPostRequest create) =>
         {
-            var createRequestEvent = new SupplierCreate(Guid.NewGuid())
-            {
-                Name = create.Name,
-                ContactEmail = create.ContactEmail,
-                ContactPhone = create.ContactPhone
-            };
+            var createRequestEvent = new SupplierCreate(Guid.NewGuid(), create.Name, create.ContactEmail, create.ContactPhone);
 
             eventStore.Append(createRequestEvent);
             var supplier = eventStore.GetSupplierById(createRequestEvent.SupplierId);
 
-            return Results.Created($"/suppliers/{createRequestEvent.SupplierId}", 
+            if (supplier == null)
+                return Results.BadRequest();
+
+            return Results.Created($"/suppliers/{createRequestEvent.SupplierId}",
                 new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue));
         })
-            .Produces<Supplier>(201);
+            .Produces<Supplier>(201)
+            .Produces(400);
 
         appGroup.MapPut("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId, SupplierPutRequest update) =>
         {
@@ -52,11 +51,7 @@ public static class SupplierEndpoints
             if (supplier == null)
                 return Results.BadRequest();
 
-            var @event = new SupplierUpdate(supplierId)
-            {
-                ContactEmail = update.ContactEmail,
-                ContactPhone = update.ContactPhone
-            };
+            var @event = new SupplierUpdate(supplierId, null, update.ContactEmail, update.ContactPhone);
 
             eventStore.Append(@event);
             supplier.Apply(@event);
@@ -65,7 +60,8 @@ public static class SupplierEndpoints
             .Produces<Supplier>(200)
             .Produces(400);
 
-        appGroup.MapDelete("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId) => { 
+        appGroup.MapDelete("/{supplierId:guid}", (IEventStore eventStore, Guid supplierId) =>
+        {
             var supplier = eventStore.GetSupplierById(supplierId);
             if (supplier == null)
                 return Results.NotFound();

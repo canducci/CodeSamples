@@ -29,11 +29,10 @@ else
     MongoEventStore.Configure();
 }
 
-
 var app = builder.Build();
 
-
 app.MapSupplierEndpoints();
+app.MapOrderEndpoints();
 
 app.MapOpenApi();
 
