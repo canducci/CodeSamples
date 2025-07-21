@@ -55,6 +55,8 @@ public static class SupplierEndpoints
 
             eventStore.Append(@event);
             supplier.Apply(@event);
+            supplier = eventStore.GetSupplierById(supplierId);
+
             return Results.Ok(new Supplier(supplier.Id, supplier.Name, supplier.ContactEmail, supplier.ContactPhone, supplier.DeletedAt.HasValue)); // updated to include IsDeleted
         })
             .Produces<Supplier>(200)

@@ -6,17 +6,19 @@ using MongoDB.Driver;
 
 namespace EventSourceApi.Events;
 
-public class MongoEventStore(IMongoCollection<Event> mongoCollection) : IEventStore
-{    
+public class MongoEventStore(IMongoCollection<Event> mongoCollection, IMongoCollection<AggregateBase> mongoViewsCollection) : IEventStore
+{
     public static void Configure()
     {
+        var guidSerializer = new GuidSerializer(GuidRepresentation.Standard);
+
         BsonClassMap.RegisterClassMap<Event>(e =>
         {
             e.SetIsRootClass(true);
             e.MapIdProperty(e => e.Id)
-                .SetSerializer(new GuidSerializer(GuidRepresentation.Standard));
+                .SetSerializer(guidSerializer);
             e.MapProperty(e => e.AggregateId)
-                .SetSerializer(new GuidSerializer(GuidRepresentation.Standard));
+                .SetSerializer(guidSerializer);
             e.MapProperty(m => m.Timestamp);
         });
 
@@ -37,7 +39,17 @@ public class MongoEventStore(IMongoCollection<Event> mongoCollection) : IEventSt
         });
         BsonClassMap.RegisterClassMap<OrderCreate>();
 
-    }    
+        BsonClassMap.RegisterClassMap<AggregateBase>(m =>
+        {
+            m.SetIsRootClass(true);
+            m.MapIdProperty(e => e.Id)
+                .SetSerializer(guidSerializer);
+            m.MapProperty(e => e.CreatedAt);
+            m.MapProperty(e => e.DeletedAt);
+        });
+        BsonClassMap.RegisterClassMap<SupplierAggregate>();
+        BsonClassMap.RegisterClassMap<OrderAggregate>();
+    }
 
     public void Append(Event @event)
     {
@@ -56,7 +68,13 @@ public class MongoEventStore(IMongoCollection<Event> mongoCollection) : IEventSt
         if (aggregateEvents.Count == 0)
             return null;
 
-        return AggregateBase<TAggregate>.Replay(aggregateEvents);
+        var aggregate = AggregateBase<TAggregate>.Replay(aggregateEvents);
+
+
+        if (aggregate != null)
+            UpdateView(aggregate);
+
+        return aggregate;
     }
 
     private IEnumerable<TAggregate> Replay<TAggregate, TEvent>()
@@ -76,20 +94,27 @@ public class MongoEventStore(IMongoCollection<Event> mongoCollection) : IEventSt
             var aggregate = AggregateBase<TAggregate>.Replay(@event);
             if (aggregate == null)
                 continue;
+
             yield return aggregate;
         }
     }
 
+    private void UpdateView<TAggregate>(TAggregate aggregate) where TAggregate : AggregateBase
+    {
+        var filter = Builders<AggregateBase>.Filter.Eq(a => a.Id, aggregate.Id);
+        var update = Builders<AggregateBase>.Update.Set(a => a, aggregate);
+        mongoViewsCollection.UpdateOne(filter, update, new UpdateOptions { IsUpsert = true });
+    }
 
     public IEnumerable<SupplierAggregate> GetAllSuppliers()
      => Replay<SupplierAggregate, SupplierEvent>();
+
+    public IEnumerable<OrderAggregate> GetAllOrders()
+        => Replay<OrderAggregate, OrderEvent>();
 
     public SupplierAggregate? GetSupplierById(Guid id)
         => GetAggregateById<SupplierAggregate, SupplierEvent>(id);
 
     public OrderAggregate? GetOrderById(Guid orderId)
         => GetAggregateById<OrderAggregate, OrderEvent>(orderId);
-
-    public IEnumerable<OrderAggregate> GetAllOrders()
-        => Replay<OrderAggregate, OrderEvent>();
 }

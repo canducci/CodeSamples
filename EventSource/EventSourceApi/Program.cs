@@ -1,3 +1,4 @@
+using EventSourceApi.Aggregates;
 using EventSourceApi.Endpoints;
 using EventSourceApi.Events;
 using Microsoft.Extensions.DependencyInjection;
@@ -16,13 +17,19 @@ if (string.IsNullOrWhiteSpace(mongo))
 }
 else
 {
+    var client = new MongoClient(mongo);
+    builder.Services.AddScoped(
+        s =>
+        {
+            var database = client.GetDatabase("EventSourceDb");
+            return database.GetCollection<Event>("Events");
+        });
 
     builder.Services.AddScoped(
         s =>
         {
-            var client = new MongoClient(mongo);
             var database = client.GetDatabase("EventSourceDb");
-            return database.GetCollection<Event>("Suppliers");
+            return database.GetCollection<AggregateBase>("Views");
         });
 
     builder.Services.AddScoped<IEventStore, MongoEventStore>();

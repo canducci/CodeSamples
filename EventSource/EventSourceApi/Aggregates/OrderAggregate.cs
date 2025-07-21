@@ -41,8 +41,8 @@ public sealed class OrderAggregate : AggregateBase<OrderAggregate>
 public enum OrderStatus
 {
     Pending,
-    Processing,
-    Completed,
+    OpenForQuotation,
+    Approved,
     Cancelled
 }
 
