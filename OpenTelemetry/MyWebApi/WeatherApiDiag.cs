@@ -1,30 +1,33 @@
 ﻿using Microsoft.Extensions.Diagnostics.Metrics;
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
 namespace MyWebApi;
 
-public class WeatherApiMetrics
+public class WeatherApiDiag
 {
     public const string MeterName = "MyWebApi.WeatherApi";
-    private readonly Histogram<int> weather_api_forecast_temperature;
-    private readonly Counter<int> weather_api_requests;
+    private static readonly Histogram<int> weather_api_forecast_temperature;
+    private static readonly Counter<int> weather_api_requests;
+    public static readonly ActivitySource activitySource;
 
-    public WeatherApiMetrics(IMeterFactory meterFactory)
+    static WeatherApiDiag()
     {
+        activitySource = new ActivitySource(MeterName) ;
 
-        var meter = meterFactory.Create(MeterName);
+        var meter = new Meter(MeterName);
 
         weather_api_forecast_temperature = meter.CreateHistogram<int>(
             "weather.api.forecast.temperature", "C", "Temperature (C) returned");
         weather_api_requests = meter.CreateCounter<int>("weather.api.requests",
             description: "Total number of requests to the Weather API");
     }
-    public void RecordRequest()
+    public static void RecordRequest()
     {
         weather_api_requests.Add(1);
     }
 
-    internal void RecordTemperature(WeatherForecast forecast)
+    internal static void RecordTemperature(WeatherForecast forecast)
     {
         weather_api_forecast_temperature.Record(forecast.TemperatureC, new KeyValuePair<string, object?>("Weekday", forecast.Date.DayOfWeek.ToString()));
     }
@@ -33,14 +36,14 @@ public class WeatherApiMetrics
 
 public class WeatherApiMetricsFilter : IEndpointFilter
 {
-    private readonly WeatherApiMetrics _metrics;
-    public WeatherApiMetricsFilter(WeatherApiMetrics metrics)
+
+    public WeatherApiMetricsFilter()
     {
-        _metrics = metrics;
+
     }
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
-        _metrics.RecordRequest();
+        WeatherApiDiag.RecordRequest();
         // Call the next middleware in the pipeline
         return await next(context);
     }

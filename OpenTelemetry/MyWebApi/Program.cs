@@ -1,12 +1,14 @@
 using Microsoft.Extensions.Compliance.Classification;
 using Microsoft.Extensions.Compliance.Redaction;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using MyWebApi;
 using OpenTelemetry;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using System.Diagnostics;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -26,7 +28,6 @@ builder.Services.AddRedaction(configure =>
 });
 
 builder.Services.AddMetrics();
-builder.Services.AddSingleton<WeatherApiMetrics>();
 
 string serviceName = builder.Environment.ApplicationName;
 
@@ -39,7 +40,7 @@ builder.Services.AddOpenTelemetry()
         configure.AddAspNetCoreInstrumentation()
                .AddHttpClientInstrumentation()
                .AddRuntimeInstrumentation()
-               .AddMeter(WeatherApiMetrics.MeterName);
+               .AddMeter(WeatherApiDiag.MeterName);
 
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
@@ -54,6 +55,7 @@ builder.Services.AddOpenTelemetry()
 
         configure.AddAspNetCoreInstrumentation()
                .AddHttpClientInstrumentation()
+               .AddSource(WeatherApiDiag.MeterName)
                .AddSource(builder.Environment.ApplicationName);
 
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
@@ -113,43 +115,61 @@ internal record WeatherForecast(
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
 }
 
-internal partial class WeatherForecastHandler
+internal class WeatherForecastHandler
 {
+    internal static IEnumerable<WeatherForecast> GetForecasts(ILogger<WeatherForecastHandler> logger)
+    {
+        WeatherApiDiag.RecordRequest();
+
+        var forecasts = ForecastService.GetRandom(logger);
+
+
+        Activity.Current?.SetCustomProperty("forecasts", forecasts.Select(x => x.Summary));
+
+        return forecasts;
+    }   
+}
+
+internal class ForecastService {
+
     static readonly string[] summaries = [
         "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
     ];
 
-    internal static IEnumerable<WeatherForecast> GetForecasts(ILogger<WeatherForecastHandler> logger, WeatherApiMetrics weatherApiMetrics)
+    internal static IEnumerable<WeatherForecast> GetRandom(ILogger logger)
     {
-        weatherApiMetrics.RecordRequest();
+        using var activity = WeatherApiDiag.activitySource.StartActivity("ForecastService.GetRandom")?
+            .AddTag("TagSample","This is a tag");
 
-        var forecasts = new Bogus.Faker<WeatherForecast>()
+        return new Bogus.Faker<WeatherForecast>()
             .CustomInstantiator(f =>
-        {
-            var forecast = new WeatherForecast(
-                DateOnly.FromDateTime(f.Date.Future()),
-                f.Random.Int(-20, 55),
-                f.PickRandom(summaries),
-                f.Finance.CreditCardNumber()
-                );
+            {
+                var forecast = new WeatherForecast(
+                    DateOnly.FromDateTime(f.Date.Future()),
+                    f.Random.Int(-20, 55),
+                    f.PickRandom(summaries),
+                    f.Finance.CreditCardNumber()
+                    );
 
-            CreatedForecast(logger, forecast.Date, forecast);
+                WeatherForecastLogger.CreatedForecast(logger, forecast.Date, forecast);
 
-            weatherApiMetrics.RecordTemperature(forecast);
+                WeatherApiDiag.RecordTemperature(forecast);
+                activity.AddEvent(new ActivityEvent(forecast.Summary ?? ""));
 
-            return forecast;
-        })
+                return forecast;
+            })
         .Generate(5);
-
-        return forecasts;
     }
+}
 
 
+public partial class WeatherForecastLogger
+{
     [LoggerMessage(LogLevel.Debug, Message = "Created weather forecast: {ForecastDate}")]
-    static partial void CreatedForecast(
-        ILogger logger,
-        DateOnly forecastDate,
-        [LogProperties] WeatherForecast forecast);
+    internal static partial void CreatedForecast(
+       ILogger logger,
+       DateOnly forecastDate,
+       [LogProperties] WeatherForecast forecast);
 }
 
 public readonly struct MyWebApiTaxonomy
