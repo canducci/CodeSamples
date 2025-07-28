@@ -14,4 +14,10 @@
     </Project>
     <Project Path="OpenTelemetry/MyWebApi/MyWebApi.csproj" />
   </Folder>
+  <Folder Name="/Pwa/">
+    <Project Path="Pwa/BlazorPwaIdentity.Server/BlazorPwaIdentity.Server.csproj" Id="2a7a2947-7562-41a1-92d3-c1abc5810d34" />
+    <Project Path="Pwa/BlazorPwaIdentity/BlazorPwaIdentity.csproj" Id="50b30bd8-46bc-4bc1-b6a9-db9c80b0b3a1">
+      <BuildDependency Project="Pwa/BlazorPwaIdentity.Server/BlazorPwaIdentity.Server.csproj" />
+    </Project>
+  </Folder>
 </Solution>

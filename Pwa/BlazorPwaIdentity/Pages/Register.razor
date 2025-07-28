@@ -1,0 +1,81 @@
+﻿@page "/Register"
+
+@using System.ComponentModel.DataAnnotations
+@using System.Text
+
+@inject ILogger<Register> Logger
+@inject NavigationManager NavigationManager
+@inject IAccountManagement AccountManagement
+
+<PageTitle>Register</PageTitle>
+
+<h1>Register</h1>
+
+<AuthorizeView>
+    <Authorized>
+        <div class="alert alert-success">You're already logged in as @context.User.Identity?.Name.</div>
+    </Authorized>
+    <NotAuthorized>
+        <FluentGrid>
+            <FluentGridItem xs="8" sm="4">
+                @if (formResult.Succeeded)
+                {
+                    <div class="alert alert-success">
+                        You successfully registered. Now you can <a href="login">login</a>.
+                    </div>
+                }
+                else
+                {
+                    <EditForm Model="Input" method="post"
+                              OnValidSubmit="RegisterUserAsync" 
+                              FormName="register"
+                              Context="editform_context">
+                        <DataAnnotationsValidator />
+                        <h2>Create a new account.</h2>
+                        <hr />
+                        <FluentValidationSummary class="text-danger" role="alert" />
+                        <FluentStack Orientation="Orientation.Vertical">
+                            <FluentTextField Name="Input.Email" @bind-Value="Input.Email" AutoComplete="email" Required="true" Placeholder="name@example.com" Label="Email" Style="width: 100%" />
+                            <FluentValidationMessage For="() => Input.Email" class="text-danger" />
+                            <FluentTextField type="password" Name="Input.Password" @bind-Value="Input.Password" AutoComplete="new-password" Required="true" Placeholder="password" Label="Password" Style="width: 100%" />
+                            <FluentValidationMessage For="() => Input.Password" class="text-danger" />
+                            <FluentTextField type="password" Name="Input.ConfirmPassword" @bind-Value="Input.ConfirmPassword" AutoComplete="new-password" Required="true" Placeholder="password" Label="Confirm Password" Style="width: 100%" />
+                            <FluentValidationMessage For="() => Input.ConfirmPassword" class="text-danger" />
+                            <FluentButton Type="ButtonType.Submit" Appearance="Appearance.Accent" Style="width: 100%">Log in</FluentButton>
+                        </FluentStack>
+                    </EditForm>
+                }
+            </FluentGridItem>
+        </FluentGrid>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private FormResult formResult = new();
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    public async Task RegisterUserAsync()
+    {
+        formResult = await AccountManagement.RegisterAsync(Input.Email, Input.Password);
+    }
+
+    private sealed class InputModel
+    {
+        [Required]
+        [EmailAddress]
+        [Display(Name = "Email")]
+        public string Email { get; set; } = "";
+
+        [Required]
+        [DataType(DataType.Password)]
+        [Display(Name = "Password")]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Display(Name = "Confirm password")]
+        [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

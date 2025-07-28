@@ -1,0 +1,28 @@
+﻿@page "/Logout"
+
+@inject IAccountManagement AccountManagement
+@inject NavigationManager NavigationManager
+
+<h3>Logout</h3>
+
+<AuthorizeView @ref="authView">
+    <Authorized>
+        <div class="alert alert-info">Logging you out...</div>
+    </Authorized>
+    <NotAuthorized>
+        <div class="alert alert-success">You're logged out. <a href="/login">Log in.</a></div>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private AuthorizeView? authView;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AccountManagement.CheckAuthenticatedAsync())
+        {
+            await AccountManagement.LogoutAsync();
+            NavigationManager.NavigateTo("/");
+        }
+    }
+}
