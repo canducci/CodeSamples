@@ -12,11 +12,10 @@ public static class ForecastEndpointsExtensions
             var apiGroup = builder.MapGroup("/api/forecast")
                 .RequireAuthorization();
 
-
-            apiGroup.MapGet("/", async (ApplicationDbContext dbContext, CancellationToken token) =>
-            {
-                return await dbContext.Forecast.AsNoTracking().ToArrayAsync(token);
-            }).Produces<IEnumerable<Weather>>();
+            apiGroup.MapGet("/", async (ApplicationDbContext dbContext, CancellationToken token)
+                => await dbContext.Forecast.AsNoTracking().ToArrayAsync(token)
+            ).Produces<IEnumerable<Weather>>()
+            .CacheOutput();
 
             return apiGroup;
         }

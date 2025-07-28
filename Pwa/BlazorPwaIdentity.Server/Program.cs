@@ -1,24 +1,32 @@
 using BlazorPwaIdentity.Server;
 using BlazorPwaIdentity.Server.Api;
-using BlazorPwaIdentity.Server.Components;
 using BlazorPwaIdentity.Server.Components.Account;
 using BlazorPwaIdentity.Server.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.FluentUI.AspNetCore.Components;
 
 var builder = WebApplication.CreateBuilder(args);
 
+//https://github.com/dotnet/blazor-samples/tree/main/9.0/BlazorWebAssemblyStandaloneWithIdentity
+
+builder.Services.AddOutputCache();
+
 builder.Services.AddAuthentication(IdentityConstants.ApplicationScheme)
-    .AddIdentityCookies();
+    .AddIdentityCookies(c => { });
+
+builder.Services.ConfigureApplicationCookie(options =>
+{    
+    options.Cookie.SameSite = SameSiteMode.None;
+    //options.Cookie.SameSite = SameSiteMode.Lax;
+    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+    //options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+});
 
 builder.Services.AddAuthorizationBuilder();
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
-
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(connectionString));
+    options.UseInMemoryDatabase("BlazorPwaIdentity"));
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -37,7 +45,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.AddCors(
     options => options.AddPolicy(
         "wasm",
-        policy => policy.WithOrigins(["https://localhost:7103"])
+        policy => policy.WithOrigins([builder.Configuration["frontend"] ?? "https://localhost:7103"])
             .AllowAnyMethod()
             .AllowAnyHeader()
             .AllowCredentials()));
@@ -47,15 +55,15 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+//if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    //db.Database.EnsureDeleted();
-    if (db.Database.EnsureCreated())
-    {
+    //db.Database.EnsureDeleted(); //Using InMemory Db
+    //if (db.Database.EnsureCreated())
+    //{
         SeedData.Execute(db);
-    }
+    //}
 }
 
 app.MapIdentityApi<ApplicationUser>();
@@ -75,6 +83,8 @@ app.UseCors("wasm");
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseOutputCache();
 
 app.MapForecastEndpoints();
 

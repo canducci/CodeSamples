@@ -15,12 +15,14 @@ builder.Services.AddScoped<AuthenticationStateProvider, CookieAuthenticationStat
 builder.Services.AddScoped(
     sp => (IAccountManagement)sp.GetRequiredService<AuthenticationStateProvider>());
 
+string backend = builder.Configuration["backend"] ?? "https://localhost:7074";
+
 builder.Services.AddScoped(sp =>
-    new HttpClient { BaseAddress = new Uri("https://localhost:7074") });
+    new HttpClient { BaseAddress = new Uri(backend) });
 
 builder.Services.AddHttpClient(
     "Auth",
-    opt => opt.BaseAddress = new Uri("https://localhost:7074"))
+    opt => opt.BaseAddress = new Uri(backend))
     .AddHttpMessageHandler<CookieHandler>();
 
 builder.Services.AddFluentUIComponents();
